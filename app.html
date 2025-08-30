@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senti's Feelings Finder</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .story-container {
+            transition: opacity 0.5s ease-in-out;
+        }
+        .sentiment-positive { background-color: #d1fae5; border-color: #10b981; }
+        .sentiment-negative { background-color: #fee2e2; border-color: #ef4444; }
+        .sentiment-neutral { background-color: #fef3c7; border-color: #f59e0b; }
+        .sentiment-card {
+            transition: all 0.5s ease;
+        }
+        .fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .fade-in {
+            opacity: 1;
+        }
+        .pulse-once {
+            animation: pulse-once 1s ease-in-out;
+        }
+        @keyframes pulse-once {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Application Container -->
+    <div id="app" class="bg-white rounded-3xl shadow-2xl p-6 md:p-12 w-full max-w-4xl flex flex-col items-center text-center">
+        <!-- Content will be rendered here dynamically -->
+    </div>
+
+    <script>
+        let currentPage = 0;
+        const app = document.getElementById('app');
+
+        const pages = [
+            {
+                title: 'Meet Senti, the Feelings Finder!',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h1 class="text-4xl md:text-5xl font-extrabold text-blue-800">Hello, I'm Senti!</h1>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            My friends Alex and Mia built me to help find **sentiment** in words. **Sentiment** means the feeling or emotion behind words, like happiness, sadness, or just being neutral.
+                        </p>
+                        <ul class="list-disc list-inside text-left text-lg space-y-2 max-w-2xl text-gray-700">
+                            <li>"I love ice cream!" → **Positive** 😊</li>
+                            <li>"I hate getting up early." → **Negative** 😡</li>
+                            <li>"The book is on the table." → **Neutral** 😐</li>
+                        </ul>
+                        <div class="p-4 bg-purple-100 rounded-2xl shadow-inner">
+                            <span class="text-5xl md:text-6xl" role="img" aria-label="A friendly robot with a smiley face">🤖</span>
+                        </div>
+                        <p class="text-lg text-gray-700">Ready to find some feelings with me?</p>
+                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Let's Go!</button>
+                    </div>
+                `
+            },
+            {
+                title: 'The Feelings Game',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h2 class="text-3xl md:text-4xl font-bold text-gray-800">The Feelings Game!</h2>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            This is **Sentiment Analysis** in action! Try to sort these sentences based on their feeling. Drag them into the right box!
+                        </p>
+                        <div id="exercise1" class="w-full">
+                            <div class="flex flex-col items-center space-y-4">
+                                <div id="wordsToDrag" class="flex flex-col space-y-4 w-full max-w-md">
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="positive">"My dog is the best!" ✅</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="negative">"My toy broke and I am sad." ❌</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="positive">"I had a wonderful day at school!" ✅</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="negative">"I lost my pencil." ❌</div>
+                                </div>
+                                <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 w-full justify-center mt-6">
+                                    <div id="positive-drop" class="drop-zone flex-1 bg-green-200 p-6 rounded-2xl shadow-lg border-4 border-green-500 flex flex-col items-center justify-center min-h-[150px] transition-all hover:scale-105 active:scale-95">
+                                        <span class="text-6xl mb-2">😀</span>
+                                        <p class="text-xl font-bold text-green-800">Positive</p>
+                                    </div>
+                                    <div id="negative-drop" class="drop-zone flex-1 bg-red-200 p-6 rounded-2xl shadow-lg border-4 border-red-500 flex flex-col items-center justify-center min-h-[150px] transition-all hover:scale-105 active:scale-95">
+                                        <span class="text-6xl mb-2">🙁</span>
+                                        <p class="text-xl font-bold text-red-800">Negative</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="nextPageButton" onclick="nextPage()" class="hidden bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95 mt-8">Senti's next challenge!</button>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: 'How Senti Works',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h2 class="text-3xl md:text-4xl font-bold text-gray-800">How Does a Computer Do It?</h2>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            Computers don't have feelings, but they can look for clues in words! The simplest way is to use a **Rule-Based Approach**.
+                        </p>
+                        <div class="p-6 rounded-2xl border-4 border-purple-500 bg-purple-100 mb-4 md:mb-0 max-w-2xl">
+                            <h3 class="font-bold text-2xl text-purple-800">The Rule-Based Approach</h3>
+                            <p class="text-lg text-gray-700 mt-2">
+                                The computer checks if a sentence has more positive words (like "good" or "love") or negative words (like "bad" or "hate"). It's like a simple word counter!
+                            </p>
+                        </div>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed mt-4">
+                           This is why **Sentiment Analysis** is so important! Companies use it to see if people like their products, and social media uses it to find bad comments. Now, let's see me in action with the rule-based method!
+                        </p>
+                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Let's Use Senti!</button>
+                    </div>
+                `
+            },
+            {
+                title: 'Senti\'s Feelings Analyzer',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h2 class="text-3xl md:text-4xl font-bold text-gray-800">Your Turn!</h2>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            Type a sentence below and see what Senti thinks! Senti will count the positive and negative words to guess the feeling.
+                        </p>
+                        <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 w-full max-w-3xl mt-4">
+                            <div class="relative w-24 h-24 md:w-32 md:h-32 bg-gray-200 rounded-full flex items-center justify-center shadow-xl">
+                                <span id="sentiFace" class="text-6xl md:text-8xl">🤖</span>
+                                <div id="sentiStatus" class="absolute bottom-[-1rem] text-sm text-gray-600 font-medium">Ready!</div>
+                            </div>
+                            <div class="flex-1 w-full space-y-4">
+                                <textarea id="sentenceInput" class="w-full h-32 p-4 rounded-xl shadow-md border-2 border-gray-300 resize-none focus:outline-none focus:border-blue-500" placeholder="Type your sentence here..."></textarea>
+                                <button onclick="analyzeSentiment()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Analyze!</button>
+                                <div id="resultCard" class="sentiment-card p-6 rounded-2xl shadow-xl border-4 transition-all duration-500 mt-4 hidden">
+                                    <h3 class="text-2xl font-bold mb-2">Senti's Conclusion:</h3>
+                                    <p id="sentimentResult" class="text-3xl font-extrabold"></p>
+                                    <p id="sentimentExplanation" class="text-md text-gray-700 mt-2"></p>
+                                </div>
+                                <div id="loadingIndicator" class="hidden text-gray-600 text-sm mt-2">Senti is thinking...</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: 'You\'re a Sentiment Expert!',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-green-600">You Did It!</h2>
+                        <span class="text-5xl md:text-6xl" role="img" aria-label="A star emoji">🌟</span>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            You've learned all about **Sentiment Analysis**! It helps computers understand if a message is positive, negative, or neutral.
+                        </p>
+                        <ul class="list-disc list-inside text-left text-lg space-y-2 mt-4 max-w-2xl">
+                            <li>**Sentiment** = finding feelings in text.</li>
+                            <li>It helps computers guess if words are positive, negative, or neutral.</li>
+                            <li>Computers don’t feel, but they can use rules to guess emotions in human language.</li>
+                        </ul>
+                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Your Next Mission!</button>
+                    </div>
+                `
+            },
+            {
+                title: 'Your Next Mission!',
+                content: `
+                    <div class="flex flex-col items-center space-y-6">
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-purple-600">Keep Learning!</h2>
+                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
+                            Now that you're a sentiment expert, here are some fun projects you can do on your own or with friends!
+                        </p>
+                        <ul class="list-disc list-inside text-left text-lg space-y-2 mt-4 max-w-2xl">
+                            <li>**Emoji Sentiment Sorting:** Take some of your favorite book sentences and add emojis to them to show their feelings.</li>
+                            <li>**Story Sentiment Tracker:** Read a short story and draw a graph that goes up for happy parts and down for sad parts.</li>
+                            <li>**Mini-Class Sentiment Analyzer:** Work with your friends to make a big list of happy and sad words on a whiteboard. Then, test out sentences together!</li>
+                        </ul>
+                        <button onclick="restartApp()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Start Over</button>
+                    </div>
+                `
+            }
+        ];
+
+        function renderPage() {
+            if (currentPage >= pages.length) {
+                return;
+            }
+            app.classList.add('fade-out');
+            setTimeout(() => {
+                const page = pages[currentPage];
+                app.innerHTML = page.content;
+                app.classList.remove('fade-out');
+                app.classList.add('fade-in');
+
+                if (currentPage === 1) {
+                    setupDragAndDrop();
+                }
+            }, 500); // Wait for fade-out to complete
+        }
+
+        function nextPage() {
+            currentPage++;
+            renderPage();
+        }
+
+        function restartApp() {
+            currentPage = 0;
+            renderPage();
+        }
+
+        function setupDragAndDrop() {
+            const dragItems = document.querySelectorAll('.drag-item');
+            const dropZones = document.querySelectorAll('.drop-zone');
+            let droppedItemsCount = 0;
+            const totalItems = dragItems.length;
+
+            dragItems.forEach(item => {
+                item.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('text/plain', e.target.dataset.sentiment);
+                    e.dataTransfer.setData('text/item-id', e.target.id);
+                });
+            });
+
+            dropZones.forEach(zone => {
+                zone.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    zone.classList.add('scale-105');
+                });
+                zone.addEventListener('dragleave', e => {
+                    zone.classList.remove('scale-105');
+                });
+                zone.addEventListener('drop', e => {
+                    e.preventDefault();
+                    zone.classList.remove('scale-105');
+                    const sentiment = e.dataTransfer.getData('text/plain');
+                    const droppedElement = e.target.closest('.drop-zone').querySelector('.drag-item[data-sentiment="' + sentiment + '"]');
+                    const itemId = e.dataTransfer.getData('text/item-id');
+
+                    const itemToMove = document.querySelector('.drag-item[data-sentiment="' + sentiment + '"]:not(.hidden)');
+
+                    if (itemToMove && zone.id.includes(sentiment)) {
+                        zone.appendChild(itemToMove);
+                        itemToMove.classList.remove('cursor-grab');
+                        itemToMove.classList.add('cursor-default');
+                        itemToMove.draggable = false;
+                        itemToMove.classList.add('pulse-once');
+                        droppedItemsCount++;
+                        if (droppedItemsCount === totalItems) {
+                            document.getElementById('nextPageButton').classList.remove('hidden');
+                        }
+                    } else {
+                        zone.classList.add('bg-red-300', 'border-red-700', 'animate-pulse');
+                        setTimeout(() => {
+                            zone.classList.remove('bg-red-300', 'border-red-700', 'animate-pulse');
+                        }, 500);
+                    }
+                });
+            });
+        }
+
+        function analyzeSentiment() {
+            const sentenceInput = document.getElementById('sentenceInput');
+            const resultCard = document.getElementById('resultCard');
+            const sentimentResult = document.getElementById('sentimentResult');
+            const sentimentExplanation = document.getElementById('sentimentExplanation');
+            const sentiFace = document.getElementById('sentiFace');
+            const sentiStatus = document.getElementById('sentiStatus');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+
+            const text = sentenceInput.value.trim().toLowerCase();
+            if (!text) {
+                sentiStatus.textContent = "Please type a sentence first!";
+                resultCard.classList.add('hidden');
+                return;
+            }
+            resultCard.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            sentiStatus.textContent = "Thinking...";
+            sentiFace.textContent = "🤔";
+
+            let sentiment = 'neutral';
+            let explanation = "That sounds like a neutral sentence. It's just a simple statement with no strong feelings.";
+            
+            const positiveWords = ['happy', 'fun', 'great', 'love', 'amazing', 'awesome', 'cool', 'good', 'wonderful', 'exciting', 'delicious', 'best'];
+            const negativeWords = ['sad', 'bad', 'hate', 'boring', 'angry', 'terrible', 'ugh', 'difficult', 'broke', 'melts', 'unhappy', 'lost'];
+
+            let positiveCount = 0;
+            let negativeCount = 0;
+
+            const words = text.split(/\s+|[.,?!]/).filter(word => word.length > 0);
+
+            words.forEach(word => {
+                if (positiveWords.includes(word)) {
+                    positiveCount++;
+                }
+                if (negativeWords.includes(word)) {
+                    negativeCount++;
+                }
+            });
+
+            if (positiveCount > negativeCount) {
+                sentiment = 'positive';
+                const foundWords = positiveWords.filter(w => words.includes(w));
+                explanation = "That sounds like a happy sentence! I found words like '" + foundWords.join("', '") + "' that make it feel positive.";
+            } else if (negativeCount > positiveCount) {
+                sentiment = 'negative';
+                const foundWords = negativeWords.filter(w => words.includes(w));
+                explanation = "That sounds like a sad sentence. I found words like '" + foundWords.join("', '") + "' that make it feel negative.";
+            }
+
+            setTimeout(() => {
+                loadingIndicator.classList.add('hidden');
+                updateUI(sentiment, explanation);
+            }, 1500);
+        }
+
+        function updateUI(sentiment, explanation) {
+            const resultCard = document.getElementById('resultCard');
+            const sentimentResult = document.getElementById('sentimentResult');
+            const sentimentExplanation = document.getElementById('sentimentExplanation');
+            const sentiFace = document.getElementById('sentiFace');
+            const sentiStatus = document.getElementById('sentiStatus');
+            
+            let faceEmoji = "🤖";
+            let cardClass = "";
+
+            if (sentiment === 'positive') {
+                faceEmoji = "😊";
+                cardClass = 'sentiment-positive';
+            } else if (sentiment === 'negative') {
+                faceEmoji = "😢";
+                cardClass = 'sentiment-negative';
+            } else {
+                faceEmoji = "😐";
+                cardClass = 'sentiment-neutral';
+            }
+
+            sentiFace.textContent = faceEmoji;
+            sentiStatus.textContent = "Done!";
+            sentimentResult.textContent = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+            sentimentExplanation.textContent = explanation;
+            resultCard.className = `sentiment-card p-6 rounded-2xl shadow-xl border-4 transition-all duration-500 mt-4`;
+            resultCard.classList.add(cardClass);
+            resultCard.classList.remove('hidden');
+        }
+
+        window.onload = renderPage;
+        window.nextPage = nextPage;
+        window.analyzeSentiment = analyzeSentiment;
+        window.restartApp = restartApp;
+    </script>
+</body>
+</html>
