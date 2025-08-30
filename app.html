@@ -6,6 +6,8 @@
     <title>Senti's Feelings Finder</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.58/build/Tone.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
         body {
@@ -35,18 +37,54 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        .drop-zone-hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 4px rgba(59, 130, 246, 0.5);
+        }
+        .drag-item:active {
+            cursor: grabbing;
+        }
     </style>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
 
     <!-- Main Application Container -->
-    <div id="app" class="bg-white rounded-3xl shadow-2xl p-6 md:p-12 w-full max-w-4xl flex flex-col items-center text-center">
-        <!-- Content will be rendered here dynamically -->
+    <div class="flex flex-col items-center w-full max-w-4xl">
+        <div id="app" class="bg-white rounded-3xl shadow-2xl p-6 md:p-12 w-full flex flex-col items-center text-center">
+            <!-- Content will be rendered here dynamically -->
+        </div>
+        <div id="nav-buttons" class="flex justify-between w-full max-w-4xl mt-6">
+            <button id="backButton" onclick="previousPage()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95" style="display:none;">Previous</button>
+            <button id="nextButton" onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95" style="display:none;">Next</button>
+        </div>
     </div>
 
     <script>
         let currentPage = 0;
+        let isGameCompleted = false;
         const app = document.getElementById('app');
+        const backButton = document.getElementById('backButton');
+        const nextButton = document.getElementById('nextButton');
+
+        // Tone.js setup
+        const positiveSynth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: {
+                attack: 0.005,
+                decay: 0.1,
+                sustain: 0,
+                release: 0.1,
+            },
+        }).toDestination();
+        const negativeSynth = new Tone.Synth({
+            oscillator: { type: 'triangle' },
+            envelope: {
+                attack: 0.005,
+                decay: 0.1,
+                sustain: 0,
+                release: 0.1,
+            },
+        }).toDestination();
 
         const pages = [
             {
@@ -66,7 +104,6 @@
                             <span class="text-5xl md:text-6xl" role="img" aria-label="A friendly robot with a smiley face">🤖</span>
                         </div>
                         <p class="text-lg text-gray-700">Ready to find some feelings with me?</p>
-                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Let's Go!</button>
                     </div>
                 `
             },
@@ -81,23 +118,22 @@
                         <div id="exercise1" class="w-full">
                             <div class="flex flex-col items-center space-y-4">
                                 <div id="wordsToDrag" class="flex flex-col space-y-4 w-full max-w-md">
-                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="positive">"My dog is the best!" ✅</div>
-                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="negative">"My toy broke and I am sad." ❌</div>
-                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="positive">"I had a wonderful day at school!" ✅</div>
-                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium" draggable="true" data-sentiment="negative">"I lost my pencil." ❌</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium transition-transform transform hover:scale-105" draggable="true" data-sentiment="positive">"My dog is the best!" ✅</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium transition-transform transform hover:scale-105" draggable="true" data-sentiment="negative">"My toy broke and I am sad." ❌</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium transition-transform transform hover:scale-105" draggable="true" data-sentiment="positive">"I had a wonderful day at school!" ✅</div>
+                                    <div class="drag-item cursor-grab bg-white p-4 rounded-xl shadow-md border-2 border-gray-200 text-gray-800 font-medium transition-transform transform hover:scale-105" draggable="true" data-sentiment="negative">"I lost my pencil." ❌</div>
                                 </div>
                                 <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 w-full justify-center mt-6">
-                                    <div id="positive-drop" class="drop-zone flex-1 bg-green-200 p-6 rounded-2xl shadow-lg border-4 border-green-500 flex flex-col items-center justify-center min-h-[150px] transition-all hover:scale-105 active:scale-95">
+                                    <div id="positive-drop" class="drop-zone flex-1 bg-green-200 p-6 rounded-2xl shadow-lg border-4 border-green-500 flex flex-col items-center justify-center min-h-[150px] transition-all duration-300">
                                         <span class="text-6xl mb-2">😀</span>
                                         <p class="text-xl font-bold text-green-800">Positive</p>
                                     </div>
-                                    <div id="negative-drop" class="drop-zone flex-1 bg-red-200 p-6 rounded-2xl shadow-lg border-4 border-red-500 flex flex-col items-center justify-center min-h-[150px] transition-all hover:scale-105 active:scale-95">
+                                    <div id="negative-drop" class="drop-zone flex-1 bg-red-200 p-6 rounded-2xl shadow-lg border-4 border-red-500 flex flex-col items-center justify-center min-h-[150px] transition-all duration-300">
                                         <span class="text-6xl mb-2">🙁</span>
                                         <p class="text-xl font-bold text-red-800">Negative</p>
                                     </div>
                                 </div>
                             </div>
-                            <button id="nextPageButton" onclick="nextPage()" class="hidden bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95 mt-8">Senti's next challenge!</button>
                         </div>
                     </div>
                 `
@@ -119,7 +155,6 @@
                         <p class="text-lg text-gray-700 max-w-2xl leading-relaxed mt-4">
                            This is why **Sentiment Analysis** is so important! Companies use it to see if people like their products, and social media uses it to find bad comments. Now, let's see me in action with the rule-based method!
                         </p>
-                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Let's Use Senti!</button>
                     </div>
                 `
             },
@@ -133,7 +168,7 @@
                         </p>
                         <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 w-full max-w-3xl mt-4">
                             <div class="relative w-24 h-24 md:w-32 md:h-32 bg-gray-200 rounded-full flex items-center justify-center shadow-xl">
-                                <span id="sentiFace" class="text-6xl md:text-8xl">🤖</span>
+                                <span id="sentiFace" class="text-6xl md:text-8xl transition-transform duration-500">🤖</span>
                                 <div id="sentiStatus" class="absolute bottom-[-1rem] text-sm text-gray-600 font-medium">Ready!</div>
                             </div>
                             <div class="flex-1 w-full space-y-4">
@@ -154,33 +189,18 @@
                 title: 'You\'re a Sentiment Expert!',
                 content: `
                     <div class="flex flex-col items-center space-y-6">
-                        <h2 class="text-4xl md:text-5xl font-extrabold text-green-600">You Did It!</h2>
-                        <span class="text-5xl md:text-6xl" role="img" aria-label="A star emoji">🌟</span>
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-green-600">Congratulations!</h2>
                         <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
-                            You've learned all about **Sentiment Analysis**! It helps computers understand if a message is positive, negative, or neutral.
+                            You've done it! You're now a certified sentiment expert! You learned that **Sentiment Analysis** helps computers find feelings in text.
                         </p>
+                        <div class="p-4 bg-purple-100 rounded-2xl shadow-inner">
+                            <span class="text-5xl md:text-6xl" role="img" aria-label="A friendly robot with a smiley face">🤖</span>
+                        </div>
                         <ul class="list-disc list-inside text-left text-lg space-y-2 mt-4 max-w-2xl">
-                            <li>**Sentiment** = finding feelings in text.</li>
-                            <li>It helps computers guess if words are positive, negative, or neutral.</li>
-                            <li>Computers don’t feel, but they can use rules to guess emotions in human language.</li>
+                            <li>**Sentiment** is the feeling behind words (positive, negative, or neutral).</li>
+                            <li>Computers can't feel, but they use simple rules to find positive and negative words to guess the sentiment.</li>
                         </ul>
-                        <button onclick="nextPage()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Your Next Mission!</button>
-                    </div>
-                `
-            },
-            {
-                title: 'Your Next Mission!',
-                content: `
-                    <div class="flex flex-col items-center space-y-6">
-                        <h2 class="text-4xl md:text-5xl font-extrabold text-purple-600">Keep Learning!</h2>
-                        <p class="text-lg text-gray-700 max-w-2xl leading-relaxed">
-                            Now that you're a sentiment expert, here are some fun projects you can do on your own or with friends!
-                        </p>
-                        <ul class="list-disc list-inside text-left text-lg space-y-2 mt-4 max-w-2xl">
-                            <li>**Emoji Sentiment Sorting:** Take some of your favorite book sentences and add emojis to them to show their feelings.</li>
-                            <li>**Story Sentiment Tracker:** Read a short story and draw a graph that goes up for happy parts and down for sad parts.</li>
-                            <li>**Mini-Class Sentiment Analyzer:** Work with your friends to make a big list of happy and sad words on a whiteboard. Then, test out sentences together!</li>
-                        </ul>
+                        <p class="text-xl font-bold text-purple-600 mt-6">Your next mission is to keep looking for feelings everywhere you read!</p>
                         <button onclick="restartApp()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 active:scale-95">Start Over</button>
                     </div>
                 `
@@ -188,9 +208,14 @@
         ];
 
         function renderPage() {
+            // Hide all buttons initially
+            backButton.style.display = 'none';
+            nextButton.style.display = 'none';
+
             if (currentPage >= pages.length) {
                 return;
             }
+
             app.classList.add('fade-out');
             setTimeout(() => {
                 const page = pages[currentPage];
@@ -198,9 +223,26 @@
                 app.classList.remove('fade-out');
                 app.classList.add('fade-in');
 
-                if (currentPage === 1) {
-                    setupDragAndDrop();
+                if (currentPage > 0) {
+                    backButton.style.display = 'block';
                 }
+                
+                // Special logic for the next button
+                if (currentPage === pages.length - 1) {
+                    // This is the last page, no next button
+                } else if (currentPage === 1) { // On the drag-and-drop game page
+                    if (isGameCompleted) {
+                        nextButton.style.display = 'block';
+                    }
+                    setupDragAndDrop();
+                } else {
+                    nextButton.style.display = 'block';
+                }
+
+                if (currentPage === 0) {
+                     backButton.style.display = 'none';
+                }
+
             }, 500); // Wait for fade-out to complete
         }
 
@@ -209,8 +251,16 @@
             renderPage();
         }
 
+        function previousPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                renderPage();
+            }
+        }
+
         function restartApp() {
             currentPage = 0;
+            isGameCompleted = false;
             renderPage();
         }
 
@@ -219,6 +269,19 @@
             const dropZones = document.querySelectorAll('.drop-zone');
             let droppedItemsCount = 0;
             const totalItems = dragItems.length;
+
+            if (isGameCompleted) {
+                // If the game is completed, place the items in the correct zones
+                dragItems.forEach(item => {
+                    const dropZone = document.getElementById(item.dataset.sentiment + '-drop');
+                    if (dropZone) {
+                        dropZone.appendChild(item);
+                        item.classList.remove('cursor-grab', 'hover:scale-105');
+                        item.classList.add('cursor-default');
+                        item.draggable = false;
+                    }
+                });
+            }
 
             dragItems.forEach(item => {
                 item.addEventListener('dragstart', e => {
@@ -230,32 +293,32 @@
             dropZones.forEach(zone => {
                 zone.addEventListener('dragover', e => {
                     e.preventDefault();
-                    zone.classList.add('scale-105');
+                    zone.classList.add('drop-zone-hover');
                 });
                 zone.addEventListener('dragleave', e => {
-                    zone.classList.remove('scale-105');
+                    zone.classList.remove('drop-zone-hover');
                 });
                 zone.addEventListener('drop', e => {
                     e.preventDefault();
-                    zone.classList.remove('scale-105');
+                    zone.classList.remove('drop-zone-hover');
                     const sentiment = e.dataTransfer.getData('text/plain');
-                    const droppedElement = e.target.closest('.drop-zone').querySelector('.drag-item[data-sentiment="' + sentiment + '"]');
-                    const itemId = e.dataTransfer.getData('text/item-id');
+                    const droppedElement = document.querySelector('.drag-item[data-sentiment="' + sentiment + '"]');
 
-                    const itemToMove = document.querySelector('.drag-item[data-sentiment="' + sentiment + '"]:not(.hidden)');
-
-                    if (itemToMove && zone.id.includes(sentiment)) {
-                        zone.appendChild(itemToMove);
-                        itemToMove.classList.remove('cursor-grab');
-                        itemToMove.classList.add('cursor-default');
-                        itemToMove.draggable = false;
-                        itemToMove.classList.add('pulse-once');
+                    if (droppedElement && zone.id.includes(sentiment)) {
+                        zone.appendChild(droppedElement);
+                        droppedElement.classList.remove('cursor-grab', 'hover:scale-105');
+                        droppedElement.classList.add('cursor-default');
+                        droppedElement.draggable = false;
+                        droppedElement.classList.add('pulse-once');
+                        positiveSynth.triggerAttackRelease('C4', '8n');
                         droppedItemsCount++;
                         if (droppedItemsCount === totalItems) {
-                            document.getElementById('nextPageButton').classList.remove('hidden');
+                            nextButton.style.display = 'block';
+                            isGameCompleted = true;
                         }
                     } else {
                         zone.classList.add('bg-red-300', 'border-red-700', 'animate-pulse');
+                        negativeSynth.triggerAttackRelease('C#2', '8n');
                         setTimeout(() => {
                             zone.classList.remove('bg-red-300', 'border-red-700', 'animate-pulse');
                         }, 500);
@@ -283,12 +346,30 @@
             loadingIndicator.classList.remove('hidden');
             sentiStatus.textContent = "Thinking...";
             sentiFace.textContent = "🤔";
+            positiveSynth.triggerAttackRelease('G3', '8n');
 
             let sentiment = 'neutral';
             let explanation = "That sounds like a neutral sentence. It's just a simple statement with no strong feelings.";
             
-            const positiveWords = ['happy', 'fun', 'great', 'love', 'amazing', 'awesome', 'cool', 'good', 'wonderful', 'exciting', 'delicious', 'best'];
-            const negativeWords = ['sad', 'bad', 'hate', 'boring', 'angry', 'terrible', 'ugh', 'difficult', 'broke', 'melts', 'unhappy', 'lost'];
+            // const positiveWords = ['happy', 'fun', 'great', 'love', 'amazing', 'awesome', 'cool', 'good', 'wonderful', 'exciting', 'delicious', 'best', 'yay'];
+            // const negativeWords = ['sad', 'bad', 'hate', 'boring', 'angry', 'terrible', 'ugh', 'difficult', 'broke', 'melts', 'unhappy', 'lost'];
+            
+            const positiveWords = [
+  'happy', 'fun', 'great', 'love', 'amazing', 'awesome', 'cool', 'good', 
+  'wonderful', 'exciting', 'delicious', 'best', 'yay', 'joy', 'smile', 
+  'fantastic', 'beautiful', 'positive', 'cheerful', 'glad', 'peace', 
+  'brilliant', 'kind', 'friendly', 'super', 'win', 'nice', 'hope', 
+  'shiny', 'celebrate', 'proud'
+];
+
+            const negativeWords = [
+  'sad', 'bad', 'hate', 'boring', 'angry', 'terrible', 'ugh', 'difficult', 
+  'broke', 'melts', 'unhappy', 'lost', 'cry', 'hurt', 'lonely', 'upset', 
+  'awful', 'worst', 'pain', 'scared', 'mad', 'frustrated', 'tired', 
+  'gloomy', 'down', 'broken', 'miserable', 'disappointed', 'failure', 
+  'uncomfortable'
+];
+
 
             let positiveCount = 0;
             let negativeCount = 0;
@@ -317,6 +398,11 @@
             setTimeout(() => {
                 loadingIndicator.classList.add('hidden');
                 updateUI(sentiment, explanation);
+                if (sentiment === 'positive') {
+                     positiveSynth.triggerAttackRelease('C5', '8n');
+                } else if (sentiment === 'negative') {
+                    negativeSynth.triggerAttackRelease('C#2', '8n');
+                }
             }, 1500);
         }
 
@@ -352,6 +438,7 @@
 
         window.onload = renderPage;
         window.nextPage = nextPage;
+        window.previousPage = previousPage;
         window.analyzeSentiment = analyzeSentiment;
         window.restartApp = restartApp;
     </script>
